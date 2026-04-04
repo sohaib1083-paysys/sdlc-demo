@@ -9,6 +9,7 @@ app = FastAPI(
 )
 
 app.include_router(router)
+from app.refresh_token_endpoint import app
 
 if __name__ == "__main__":
     import uvicorn
