@@ -1,0 +1,2 @@
+# Download a sample hero image and save it as hero.jpg
+wget https://picsum.photos/2000/1000 -O hero.jpg
