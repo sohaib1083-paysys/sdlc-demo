@@ -1,20 +1,10 @@
-from pydantic import BaseSettings
+# app/config.py
+import os
 
-class KeycloakConfig(BaseSettings):
+class Config:
     """
-    Keycloak configuration settings.
+    Configuration class.
     """
-    keycloak_url: str
-    realm: str
-    client_id: str
-    client_secret: str
-
-class LoggingConfig(BaseSettings):
-    """
-    Logging configuration settings.
-    """
-    log_level: str = "INFO"
-    log_file: str = "app.log"
-
-keycloak_config = KeycloakConfig()
-logging_config = LoggingConfig()
+    DEBUG = os.environ.get("DEBUG", False)
+    HOST = os.environ.get("HOST", "0.0.0.0")
+    PORT = os.environ.get("PORT", 8000)
