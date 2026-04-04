@@ -1,0 +1,27 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+#sdlc-phases {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+.phase {
+    background-color: #f0f0f0;
+    padding: 10px;
+    border: 1px solid #ccc;
+    margin: 10px;
+    width: 50%;
+    text-align: center;
+}
+
+.phase:hover {
+    background-color: #ccc;
+}
+
+.handle {
+    cursor: move;
+}
