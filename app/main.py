@@ -1,16 +1,22 @@
-# app/main.py
 from fastapi import FastAPI
-from health_check import router
+from fastapi.middleware.cors import CORSMiddleware
+from app.auth.routes import auth_router
+from app.fitness.routes import fitness_router
 
-app = FastAPI(
-    title="Health Check API",
-    description="API for checking the health of the application",
-    version="1.0.0"
+app = FastAPI()
+
+origins = [
+    "http://localhost:8000",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app.include_router(router)
-from app.refresh_token_endpoint import app
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+app.include_router(auth_router, prefix="/auth")
+app.include_router(fitness_router, prefix="/fitness")
