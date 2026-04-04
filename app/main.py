@@ -1,16 +1,22 @@
-# app/main.py
-from fastapi import FastAPI
-from health_check import router
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+from app.auth.routes import auth_routes
+from app.about.routes import about_routes
+from app.errors import handle_404, handle_no_internet
 
-app = FastAPI(
-    title="Health Check API",
-    description="API for checking the health of the application",
-    version="1.0.0"
-)
+app = FastAPI()
 
-app.include_router(router)
-from app.refresh_token_endpoint import app
+templates = Jinja2Templates(directory="templates")
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+app.include_router(auth_routes)
+app.include_router(about_routes)
+
+@app.exception_handler(404)
+async def handle_404_error(request: Request, exc):
+    return handle_404()
+
+@app.exception_handler(Exception)
+async def handle_no_internet_error(request: Request, exc):
+    return handle_no_internet()
