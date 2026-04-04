@@ -1,0 +1,37 @@
+[
+    {
+        "name": "Planning",
+        "description": "Define project scope, goals, and deliverables",
+        "order": 1
+    },
+    {
+        "name": "Analysis",
+        "description": "Gather and analyze requirements",
+        "order": 2
+    },
+    {
+        "name": "Design",
+        "description": "Create a detailed design of the system",
+        "order": 3
+    },
+    {
+        "name": "Implementation",
+        "description": "Develop the system",
+        "order": 4
+    },
+    {
+        "name": "Testing",
+        "description": "Test the system",
+        "order": 5
+    },
+    {
+        "name": "Deployment",
+        "description": "Deploy the system",
+        "order": 6
+    },
+    {
+        "name": "Maintenance",
+        "description": "Maintain and update the system",
+        "order": 7
+    }
+]
