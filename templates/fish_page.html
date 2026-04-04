@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fish Page</title>
+</head>
+<body>
+    <h1>Fish Page</h1>
+    <ul>
+    {% for species in species_list %}
+        <li>{{ species.name }} ({{ species.scientific_name }})</li>
+    {% endfor %}
+    </ul>
+    <p><a href="/fish-page/search">Search for a fish species</a></p>
+</body>
+</html>
+
+# templates/fish_details.html
