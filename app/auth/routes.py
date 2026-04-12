@@ -13,7 +13,7 @@ POST /auth/token      – Legacy endpoint: validate a Bearer token passed direct
 """
 
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import requests as _requests
@@ -68,7 +68,7 @@ async def login(request: Request, redirect: str = "/"):
     safe_redirect = _safe_redirect_path(redirect)
     state = keycloak_service.generate_state(redirect_after_login=safe_redirect)
     authorization_url = keycloak_service.build_authorization_url(state=state)
-    log_info(f"Redirecting unauthenticated request to Keycloak login [{datetime.utcnow().isoformat()}]")
+    log_info(f"Redirecting unauthenticated request to Keycloak login [{datetime.now(timezone.utc).isoformat()}]")
     return RedirectResponse(url=authorization_url)
 
 
@@ -94,7 +94,7 @@ async def callback(
     if error:
         msg = error_description or error
         log_error(
-            f"Keycloak authentication error at {datetime.utcnow().isoformat()}",
+            f"Keycloak authentication error at {datetime.now(timezone.utc).isoformat()}",
             Exception(msg),
         )
         raise HTTPException(
@@ -118,7 +118,7 @@ async def callback(
         tokens = keycloak_service.exchange_code_for_tokens(code)
     except Exception as exc:
         log_error(
-            f"Token exchange failed at {datetime.utcnow().isoformat()}",
+            f"Token exchange failed at {datetime.now(timezone.utc).isoformat()}",
             exc,
         )
         raise HTTPException(
@@ -149,7 +149,7 @@ async def callback(
         role_validator.require_role(roles, username=username)
     except HTTPException:
         log_error(
-            f"Login rejected for '{username}' at {datetime.utcnow().isoformat()} — insufficient role",
+            f"Login rejected for '{username}' at {datetime.now(timezone.utc).isoformat()} — insufficient role",
             Exception("InsufficientRole"),
         )
         raise
@@ -165,7 +165,7 @@ async def callback(
     )
 
     log_info(
-        f"Login successful for user '{username}' ({email}) at {datetime.utcnow().isoformat()}"
+        f"Login successful for user '{username}' ({email}) at {datetime.now(timezone.utc).isoformat()}"
     )
 
     # Redirect to original destination with session cookie set.
@@ -204,7 +204,7 @@ async def logout(
         if session_data:
             id_token = session_data.get("id_token")
 
-    log_info(f"Logout initiated for user '{current_user.username}' at {datetime.utcnow().isoformat()}")
+    log_info(f"Logout initiated for user '{current_user.username}' at {datetime.now(timezone.utc).isoformat()}")
 
     logout_url = keycloak_service.build_logout_url(
         id_token_hint=id_token,
@@ -263,7 +263,7 @@ async def login_for_access_token(user: User):
         )
     except Exception as exc:
         log_error(
-            f"Keycloak login attempt failed for '{user.username}' at {datetime.utcnow().isoformat()}",
+            f"Keycloak login attempt failed for '{user.username}' at {datetime.now(timezone.utc).isoformat()}",
             exc,
         )
         raise HTTPException(
@@ -273,7 +273,7 @@ async def login_for_access_token(user: User):
 
     if resp.status_code != 200:
         log_error(
-            f"Invalid credentials for '{user.username}' at {datetime.utcnow().isoformat()}",
+            f"Invalid credentials for '{user.username}' at {datetime.now(timezone.utc).isoformat()}",
             Exception(resp.text),
         )
         raise HTTPException(
@@ -289,5 +289,5 @@ async def login_for_access_token(user: User):
     roles = role_validator.extract_roles(payload)
     role_validator.require_role(roles, username=user.username)
 
-    log_info(f"Successful token login for '{user.username}' at {datetime.utcnow().isoformat()}")
+    log_info(f"Successful token login for '{user.username}' at {datetime.now(timezone.utc).isoformat()}")
     return {"access_token": access_token, "token_type": "bearer"}

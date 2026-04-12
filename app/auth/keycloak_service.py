@@ -12,7 +12,7 @@ Handles the Authorization Code flow:
 import secrets
 import threading
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 import requests
@@ -92,7 +92,7 @@ class KeycloakService:
             )
             response.raise_for_status()
             tokens = response.json()
-            log_info(f"Token exchange successful at {datetime.utcnow().isoformat()}")
+            log_info(f"Token exchange successful at {datetime.now(timezone.utc).isoformat()}")
             return tokens
         except requests.RequestException as exc:
             log_error("Token exchange failed", exc)
@@ -265,7 +265,7 @@ class KeycloakService:
                 access_token,
                 key,
                 algorithms=["RS256"],   # Only RS256; no HS256 to prevent key confusion
-                options={"verify_aud": False},
+                audience=keycloak_config.client_id,
             )
             return payload
         except requests.RequestException as exc:

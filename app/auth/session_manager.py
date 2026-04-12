@@ -51,15 +51,25 @@ class SessionManager:
         raw = base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
         return self._signer.sign(raw).decode()
 
+    _REQUIRED_SESSION_FIELDS = {"access_token", "username", "last_activity"}
+
     def decode_session(self, cookie_value: str) -> Optional[Dict[str, Any]]:
         """
         Verify and deserialize a cookie value.
-        Returns ``None`` if the signature is invalid.  Activity-based
-        expiration is checked separately via ``is_session_active()``.
+        Returns ``None`` if the signature is invalid or required session fields
+        are missing.  Activity-based expiration is checked separately via
+        ``is_session_active()``.
         """
         try:
             raw = self._signer.unsign(cookie_value)
-            return json.loads(base64.urlsafe_b64decode(raw).decode())
+            data = json.loads(base64.urlsafe_b64decode(raw).decode())
+            if not isinstance(data, dict) or not self._REQUIRED_SESSION_FIELDS.issubset(data):
+                log_error(
+                    "Session data is missing required fields",
+                    Exception(f"Missing: {self._REQUIRED_SESSION_FIELDS - set(data)}"),
+                )
+                return None
+            return data
         except SignatureExpired:
             log_info("Session cookie has an expired signature")
             return None
