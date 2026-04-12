@@ -27,19 +27,20 @@ import base64
 from app.config import keycloak_config
 from app.logging import log_info, log_error
 
-# Secret used to sign session cookies — read from environment variable.
-# Must be overridden in production.
-_SESSION_SECRET = os.environ.get(
-    "SESSION_SECRET_KEY", "sdlc-session-secret-change-in-production"
-)
+# Use the session secret from the centralized config (which reads from env vars).
 _COOKIE_NAME = "sdlc_session"
 
 
 class SessionManager:
     """Manages Keycloak session data stored in a signed cookie."""
 
-    def __init__(self, secret: str = _SESSION_SECRET):
-        self._signer = TimestampSigner(secret)
+    def __init__(self):
+        # Secret is read lazily from config so tests can override it
+        pass
+
+    @property
+    def _signer(self) -> TimestampSigner:
+        return TimestampSigner(keycloak_config.session_secret_key)
 
     # ------------------------------------------------------------------
     # Encoding / Decoding

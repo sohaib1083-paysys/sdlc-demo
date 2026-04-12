@@ -167,9 +167,10 @@ async def callback(
     )
 
     # Redirect to original destination with session cookie set.
-    # Build the full URL from the trusted request base_url + validated relative path
-    # to ensure the host component always comes from a trusted source.
-    base = str(request.base_url).rstrip("/")
+    # Use the configured app_base_url (not request.base_url) to prevent
+    # Host header injection attacks.
+    from app.config import keycloak_config as _kc  # noqa: PLC0415
+    base = _kc.app_base_url.rstrip("/")
     full_redirect_url = base + redirect_to
     redirect_response = RedirectResponse(url=full_redirect_url, status_code=status.HTTP_302_FOUND)
     redirect_response.set_cookie(
@@ -177,15 +178,10 @@ async def callback(
         value=cookie_value,
         httponly=True,
         samesite="lax",
-        max_age=get_session_max_age(),
+        # No max_age — expiration is governed by the last_activity timestamp
+        # checked in session_manager.is_session_active(), not by the cookie TTL.
     )
     return redirect_response
-
-
-def get_session_max_age() -> int:
-    """Return the configured inactivity timeout in seconds."""
-    from app.config import keycloak_config  # noqa: PLC0415
-    return keycloak_config.inactivity_timeout
 
 
 @auth_router.get("/logout")
@@ -199,6 +195,8 @@ async def logout(
     Clears the session cookie and redirects the browser to Keycloak's
     end-session endpoint so the Keycloak session is also terminated.
     """
+    from app.config import keycloak_config as _kc  # noqa: PLC0415
+
     # Retrieve id_token from session (needed for Keycloak logout hint)
     id_token = None
     cookie_value = request.cookies.get(session_manager.cookie_name)
@@ -211,7 +209,9 @@ async def logout(
 
     logout_url = keycloak_service.build_logout_url(
         id_token_hint=id_token,
-        post_logout_redirect=f"{request.base_url}",
+        # Use the configured app_base_url (not request.base_url) to prevent
+        # Host header injection attacks.
+        post_logout_redirect_uri=_kc.app_base_url,
     )
     response = RedirectResponse(url=logout_url)
     response.delete_cookie(key=session_manager.cookie_name)

@@ -176,15 +176,15 @@ class KeycloakService:
     # Logout
     # ------------------------------------------------------------------
 
-    def build_logout_url(self, id_token_hint: Optional[str] = None, post_logout_redirect: Optional[str] = None) -> str:
+    def build_logout_url(self, id_token_hint: Optional[str] = None, post_logout_redirect_uri: Optional[str] = None) -> str:
         """
         Return the Keycloak end-session URL.
         """
         params: Dict[str, str] = {"client_id": keycloak_config.client_id}
         if id_token_hint:
             params["id_token_hint"] = id_token_hint
-        if post_logout_redirect:
-            params["post_logout_redirect_uri"] = post_logout_redirect
+        if post_logout_redirect_uri:
+            params["post_logout_redirect_uri"] = post_logout_redirect_uri
         return f"{self._base_oidc_url}/logout?{urllib.parse.urlencode(params)}"
 
     # ------------------------------------------------------------------
