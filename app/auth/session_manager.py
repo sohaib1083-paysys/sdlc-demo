@@ -16,6 +16,7 @@ Session data stored in the cookie:
   }
 """
 
+import os
 import time
 from typing import Optional, Dict, Any
 
@@ -26,9 +27,11 @@ import base64
 from app.config import keycloak_config
 from app.logging import log_info, log_error
 
-# Secret used to sign session cookies – should be set via an environment
-# variable in production.
-_SESSION_SECRET = "sdlc-session-secret-change-in-production"
+# Secret used to sign session cookies — read from environment variable.
+# Must be overridden in production.
+_SESSION_SECRET = os.environ.get(
+    "SESSION_SECRET_KEY", "sdlc-session-secret-change-in-production"
+)
 _COOKIE_NAME = "sdlc_session"
 
 
@@ -50,17 +53,14 @@ class SessionManager:
     def decode_session(self, cookie_value: str) -> Optional[Dict[str, Any]]:
         """
         Verify and deserialize a cookie value.
-        Returns ``None`` if the signature is invalid or the session has
-        expired beyond the inactivity timeout.
+        Returns ``None`` if the signature is invalid.  Activity-based
+        expiration is checked separately via ``is_session_active()``.
         """
         try:
-            raw = self._signer.unsign(
-                cookie_value,
-                max_age=keycloak_config.inactivity_timeout,
-            )
+            raw = self._signer.unsign(cookie_value)
             return json.loads(base64.urlsafe_b64decode(raw).decode())
         except SignatureExpired:
-            log_info("Session cookie expired (inactivity timeout)")
+            log_info("Session cookie has an expired signature")
             return None
         except BadSignature:
             log_error("Invalid session cookie signature", Exception("BadSignature"))

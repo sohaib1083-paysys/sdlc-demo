@@ -30,6 +30,7 @@ class LoggingConfig(BaseSettings):
     """
     log_level: str = "INFO"
     log_file: str = "app.log"
+    log_rotation: str = "10 MB"
 
     class Config:
         env_prefix = "LOG_"

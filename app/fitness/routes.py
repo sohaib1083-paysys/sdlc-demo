@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
 
-from app.auth.routes import get_current_user
+from app.auth.services import get_current_user
 from app.auth.schemas import KeycloakUser
 from app.fitness.schemas import FitnessGoal
 from app.fitness.services import (
@@ -12,8 +11,6 @@ from app.fitness.services import (
 )
 
 fitness_router = APIRouter()
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 @fitness_router.get("/fitness-page")

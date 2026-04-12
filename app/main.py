@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -20,12 +22,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Session middleware — secret should be overridden via an environment variable
-# in production (e.g. SESSION_SECRET_KEY).
+# Session middleware — override SESSION_SECRET_KEY in production.
+# max_age is not set here; inactivity-based expiration is handled by
+# session_manager.py's is_session_active() check using the last_activity timestamp.
+_session_secret = os.environ.get(
+    "SESSION_SECRET_KEY", "sdlc-session-secret-change-in-production"
+)
+
 app.add_middleware(
     SessionMiddleware,
-    secret_key="sdlc-session-secret-change-in-production",
-    max_age=1800,          # matches default inactivity timeout
+    secret_key=_session_secret,
     same_site="lax",
     https_only=False,      # set to True in production behind HTTPS
 )

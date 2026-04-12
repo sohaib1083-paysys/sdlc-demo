@@ -12,81 +12,40 @@ GET  /auth/me         – Returns the current authenticated user's profile.
 POST /auth/token      – Legacy endpoint: validate a Bearer token passed directly.
 """
 
+import urllib.parse
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
-from fastapi.security import OAuth2PasswordBearer
 
 from app.auth.keycloak_service import keycloak_service
 from app.auth.role_validator import role_validator
 from app.auth.schemas import KeycloakUser, LoginResponse, User
+from app.auth.services import get_current_user
 from app.auth.session_manager import session_manager
 from app.logging import log_error, log_info
 
 auth_router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
-
-# ---------------------------------------------------------------------------
-# Dependency: resolve the current user from session cookie or Bearer token
-# ---------------------------------------------------------------------------
-
-
-def get_current_user(
-    request: Request,
-    token: Optional[str] = Depends(oauth2_scheme),
-) -> KeycloakUser:
+def _safe_redirect_path(url: str) -> str:
     """
-    Resolve the authenticated user.
+    Validate and sanitize a redirect URL so that only relative paths within
+    this application are accepted.  Any scheme or host component is stripped,
+    preventing open-redirect attacks.
 
-    Priority:
-    1. Session cookie (browser-based flow)
-    2. Authorization: Bearer <token> header (API / programmatic access)
+    Returns a path that always starts with ``/``.
     """
-    # --- 1. Try session cookie ---
-    cookie_value = request.cookies.get(session_manager.cookie_name)
-    if cookie_value:
-        session_data = session_manager.decode_session(cookie_value)
-        if session_data and session_manager.is_session_active(session_data):
-            return KeycloakUser(
-                username=session_data["username"],
-                email=session_data.get("email"),
-                roles=session_data.get("roles", []),
-                access_token=session_data["access_token"],
-            )
-
-    # --- 2. Try Bearer token ---
-    if token:
-        try:
-            introspection = keycloak_service.introspect_token(token)
-            if not introspection.get("active", False):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token is inactive or expired",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            payload = keycloak_service.decode_access_token(token)
-            roles = role_validator.extract_roles(payload)
-            username = payload.get("preferred_username", payload.get("sub", "unknown"))
-            return KeycloakUser(
-                username=username,
-                email=payload.get("email"),
-                roles=roles,
-                access_token=token,
-            )
-        except HTTPException:
-            raise
-        except Exception as exc:
-            log_error("Bearer token validation failed", exc)
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated. Please log in.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    parsed = urllib.parse.urlparse(url)
+    # Allow only relative paths (no scheme, no netloc)
+    if parsed.scheme or parsed.netloc:
+        return "/"
+    path = parsed.path or "/"
+    # Ensure the path starts with /
+    if not path.startswith("/"):
+        path = "/" + path
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +62,9 @@ async def login(request: Request, redirect: str = "/"):
     query-parameter holds the original destination and is encoded into the
     OAuth2 ``state`` value so it survives the round-trip.
     """
-    state = keycloak_service.generate_state(redirect_after_login=redirect)
+    # Validate the redirect parameter to prevent open-redirect attacks
+    safe_redirect = _safe_redirect_path(redirect)
+    state = keycloak_service.generate_state(redirect_after_login=safe_redirect)
     authorization_url = keycloak_service.build_authorization_url(state=state)
     log_info(f"Redirecting unauthenticated request to Keycloak login [{datetime.utcnow().isoformat()}]")
     return RedirectResponse(url=authorization_url)
@@ -111,7 +72,7 @@ async def login(request: Request, redirect: str = "/"):
 
 @auth_router.get("/callback")
 async def callback(
-    response: Response,
+    request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
     error: Optional[str] = None,
@@ -146,7 +107,9 @@ async def callback(
         )
 
     # Determine where to redirect after successful login
-    redirect_to = keycloak_service.extract_redirect_from_state(state or "")
+    # Validate to prevent open-redirect attacks (must be a relative path)
+    raw_redirect = keycloak_service.extract_redirect_from_state(state or "")
+    redirect_to = _safe_redirect_path(raw_redirect)
 
     # Exchange the code for tokens
     try:
@@ -203,20 +166,24 @@ async def callback(
         f"Login successful for user '{username}' ({email}) at {datetime.utcnow().isoformat()}"
     )
 
-    # Redirect to original destination with session cookie set
-    redirect_response = RedirectResponse(url=redirect_to, status_code=status.HTTP_302_FOUND)
+    # Redirect to original destination with session cookie set.
+    # Build the full URL from the trusted request base_url + validated relative path
+    # to ensure the host component always comes from a trusted source.
+    base = str(request.base_url).rstrip("/")
+    full_redirect_url = base + redirect_to
+    redirect_response = RedirectResponse(url=full_redirect_url, status_code=status.HTTP_302_FOUND)
     redirect_response.set_cookie(
         key=session_manager.cookie_name,
         value=cookie_value,
         httponly=True,
         samesite="lax",
-        max_age=keycloak_config_inactivity(),
+        max_age=get_session_max_age(),
     )
     return redirect_response
 
 
-def keycloak_config_inactivity() -> int:
-    """Return the configured inactivity timeout (avoids circular import)."""
+def get_session_max_age() -> int:
+    """Return the configured inactivity timeout in seconds."""
     from app.config import keycloak_config  # noqa: PLC0415
     return keycloak_config.inactivity_timeout
 
