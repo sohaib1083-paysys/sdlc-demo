@@ -28,7 +28,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=keycloak_config.session_secret_key,
     same_site="lax",
-    https_only=False,      # set to True in production behind HTTPS
+    https_only=keycloak_config.session_https_only,
 )
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])

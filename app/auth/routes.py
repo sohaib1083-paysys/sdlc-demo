@@ -16,7 +16,8 @@ import urllib.parse
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+import requests as _requests
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
 from app.auth.keycloak_service import keycloak_service
@@ -24,6 +25,7 @@ from app.auth.role_validator import role_validator
 from app.auth.schemas import KeycloakUser, LoginResponse, User
 from app.auth.services import get_current_user
 from app.auth.session_manager import session_manager
+from app.config import keycloak_config
 from app.logging import log_error, log_info
 
 auth_router = APIRouter()
@@ -169,8 +171,7 @@ async def callback(
     # Redirect to original destination with session cookie set.
     # Use the configured app_base_url (not request.base_url) to prevent
     # Host header injection attacks.
-    from app.config import keycloak_config as _kc  # noqa: PLC0415
-    base = _kc.app_base_url.rstrip("/")
+    base = keycloak_config.app_base_url.rstrip("/")
     full_redirect_url = base + redirect_to
     redirect_response = RedirectResponse(url=full_redirect_url, status_code=status.HTTP_302_FOUND)
     redirect_response.set_cookie(
@@ -195,8 +196,6 @@ async def logout(
     Clears the session cookie and redirects the browser to Keycloak's
     end-session endpoint so the Keycloak session is also terminated.
     """
-    from app.config import keycloak_config as _kc  # noqa: PLC0415
-
     # Retrieve id_token from session (needed for Keycloak logout hint)
     id_token = None
     cookie_value = request.cookies.get(session_manager.cookie_name)
@@ -211,7 +210,7 @@ async def logout(
         id_token_hint=id_token,
         # Use the configured app_base_url (not request.base_url) to prevent
         # Host header injection attacks.
-        post_logout_redirect_uri=_kc.app_base_url,
+        post_logout_redirect_uri=keycloak_config.app_base_url,
     )
     response = RedirectResponse(url=logout_url)
     response.delete_cookie(key=session_manager.cookie_name)
@@ -241,8 +240,6 @@ async def login_for_access_token(user: User):
     Resource Owner Password Credentials grant.  Prefer the browser-based
     Authorization Code Flow (/auth/login) for interactive use.
     """
-    from app.config import keycloak_config  # noqa: PLC0415
-
     url = (
         f"{keycloak_config.keycloak_url}"
         f"/realms/{keycloak_config.realm}"
@@ -256,8 +253,6 @@ async def login_for_access_token(user: User):
         "client_secret": keycloak_config.client_secret,
         "scope": "openid",
     }
-
-    import requests as _requests  # noqa: PLC0415
 
     try:
         resp = _requests.post(

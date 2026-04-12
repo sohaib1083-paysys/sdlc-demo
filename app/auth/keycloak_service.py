@@ -243,14 +243,14 @@ class KeycloakService:
     def decode_access_token(self, access_token: str) -> Dict[str, Any]:
         """
         Decode and verify a JWT access token using Keycloak's public keys
-        (JWKS).  Falls back to introspection-based claims extraction when
-        JWKS is unavailable (e.g., Keycloak unreachable during tests).
+        (JWKS).  Only RS256 is accepted; HS256 is rejected to prevent
+        algorithm-confusion attacks.
 
         Returns the payload claims dict.
+        Raises ``JWTError`` if the token is invalid or signature verification fails.
         """
         try:
             jwks = self._get_jwks()
-            # Build a dict of keys by kid for efficient lookup
             header = jwt.get_unverified_header(access_token)
             kid = header.get("kid")
             key = next((k for k in jwks if k.get("kid") == kid), None)
@@ -264,26 +264,15 @@ class KeycloakService:
             payload = jwt.decode(
                 access_token,
                 key,
-                algorithms=["RS256", "HS256"],
+                algorithms=["RS256"],   # Only RS256; no HS256 to prevent key confusion
                 options={"verify_aud": False},
             )
             return payload
-        except requests.RequestException:
-            # Keycloak unreachable — fall back to unverified decode
-            log_info("JWKS unavailable; falling back to unverified JWT decode")
+        except requests.RequestException as exc:
+            log_error("JWKS unavailable; cannot verify JWT signature", exc)
+            raise
         except JWTError as exc:
             log_error("JWT signature verification failed", exc)
-            raise
-
-        # Fallback: decode without signature verification
-        try:
-            return jwt.decode(
-                access_token,
-                options={"verify_signature": False, "verify_aud": False},
-                algorithms=["RS256", "HS256"],
-            )
-        except JWTError as exc:
-            log_error("Failed to decode access token", exc)
             raise
 
 

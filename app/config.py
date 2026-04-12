@@ -19,8 +19,10 @@ class KeycloakConfig(BaseSettings):
     # Inactivity timeout in seconds (default: 30 minutes)
     inactivity_timeout: int = 1800
     # Session signing secret — MUST be overridden in production via
-    # the SESSION_SECRET_KEY environment variable.
+    # the KEYCLOAK_SESSION_SECRET_KEY environment variable.
     session_secret_key: str = "sdlc-session-secret-change-in-production"
+    # Whether session cookies require HTTPS — set True in production (behind HTTPS).
+    session_https_only: bool = False
 
     class Config:
         env_prefix = "KEYCLOAK_"
@@ -43,7 +45,7 @@ class KeycloakConfig(BaseSettings):
         if v == "sdlc-session-secret-change-in-production":
             warnings.warn(
                 "KEYCLOAK_SESSION_SECRET_KEY is using the default placeholder value. "
-                "Set SESSION_SECRET_KEY or KEYCLOAK_SESSION_SECRET_KEY in production.",
+                "Set KEYCLOAK_SESSION_SECRET_KEY in production.",
                 stacklevel=2,
             )
         return v
