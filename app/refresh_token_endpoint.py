@@ -1,17 +1,19 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, HTTPException
+
 from app.keycloak_integration import KeycloakIntegration
-from app.config import keycloak_config
+from app.logging import log_error
 
 app = FastAPI()
+
 
 @app.post("/refresh-token")
 async def refresh_token(refresh_token: str):
     """
     Refresh an access token using a refresh token.
-    
+
     Args:
     refresh_token (str): The refresh token to use.
-    
+
     Returns:
     dict: A dictionary containing the new access token.
     """
@@ -23,14 +25,15 @@ async def refresh_token(refresh_token: str):
         log_error("Error refreshing token", e)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
+
 @app.post("/validate-token")
 async def validate_token(token: str):
     """
     Validate an access token.
-    
+
     Args:
     token (str): The token to validate.
-    
+
     Returns:
     dict: A dictionary containing whether the token is valid.
     """
